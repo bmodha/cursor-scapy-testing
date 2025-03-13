@@ -1,6 +1,6 @@
 # Network Segmentation Testing Tool
 
-This tool is designed for testing network segmentation and firewall rules using various techniques with Scapy. It provides multiple testing methods including IP spoofing, TCP/UDP port scanning, and VLAN hopping tests.
+This tool is designed for testing network segmentation and firewall rules using various techniques with Scapy. It provides multiple testing methods including IP spoofing, TCP/UDP port scanning, VLAN hopping tests, and advanced firewall validation features.
 
 ## Prerequisites
 
@@ -34,7 +34,7 @@ pip install scapy
 
 ## Usage
 
-The script provides several testing modes that can be used to validate network segmentation:
+The script provides several testing modes that can be used to validate network segmentation and firewall rules:
 
 ### Basic Usage
 
@@ -48,56 +48,95 @@ Linux/Unix:
 sudo python network_tester.py --target TARGET_IP --mode MODE [additional options]
 ```
 
-### Available Modes
+### Available Test Modes
 
-1. **Ping Test with IP Spoofing**
-```bash
-sudo python network_tester.py --target 192.168.1.1 --mode ping --source 10.0.0.1
-```
+1. **Basic Network Tests**
 
-2. **TCP SYN Scan**
-```bash
-sudo python network_tester.py --target 192.168.1.1 --mode tcp --ports 80,443,22
-```
+   a. **Ping Test with IP Spoofing** (`--mode ping`)
+   ```bash
+   python network_tester.py --target 192.168.1.1 --mode ping --source 10.0.0.1
+   ```
 
-3. **UDP Port Scan**
-```bash
-sudo python network_tester.py --target 192.168.1.1 --mode udp --ports 53,161,123
-```
+   b. **TCP SYN Scan** (`--mode tcp`)
+   ```bash
+   python network_tester.py --target 192.168.1.1 --mode tcp --ports 80,443,22
+   ```
 
-4. **VLAN Hopping Test**
-```bash
-sudo python network_tester.py --target 192.168.1.1 --mode vlan --vlan 100
-```
+   c. **UDP Port Scan** (`--mode udp`)
+   ```bash
+   python network_tester.py --target 192.168.1.1 --mode udp --ports 53,161,123
+   ```
+
+   d. **VLAN Hopping Test** (`--mode vlan`)
+   ```bash
+   python network_tester.py --target 192.168.1.1 --mode vlan --vlan 100
+   ```
+
+2. **Advanced Firewall Testing**
+
+   a. **Fragment Handling Test** (`--mode fragment`)
+   ```bash
+   python network_tester.py --target 192.168.1.1 --mode fragment --ports 80
+   ```
+   - Tests firewall's ability to handle fragmented packets
+   - Sends fragments in reverse order to test reassembly
+   - Detects if firewall blocks or properly reassembles fragments
+
+   b. **Protocol Enforcement Test** (`--mode protocol`)
+   ```bash
+   python network_tester.py --target 192.168.1.1 --mode protocol
+   ```
+   - Tests Deep Packet Inspection (DPI) capabilities
+   - Attempts HTTP traffic over non-HTTP ports
+   - Tests handling of malformed protocol headers
+
+   c. **Rate Limiting Detection** (`--mode rate`)
+   ```bash
+   python network_tester.py --target 192.168.1.1 --mode rate --packets 200 --interval 0.5
+   ```
+   - Tests for rate limiting implementation
+   - Configurable packet count and interval
+   - Measures success rate to detect throttling
+
+   d. **State Tracking Test** (`--mode state`)
+   ```bash
+   python network_tester.py --target 192.168.1.1 --mode state
+   ```
+   - Determines if firewall is stateful or stateless
+   - Tests handling of out-of-state packets
+   - Validates TCP connection state tracking
+
+   e. **Policy Consistency Check** (`--mode policy`)
+   ```bash
+   python network_tester.py --target 192.168.1.1 --mode policy
+   ```
+   - Tests rule consistency across protocols
+   - Checks common service ports
+   - Identifies policy inconsistencies between TCP/UDP
 
 ### Command Line Arguments
 
 - `--target`: Target IP address (required)
-- `--mode`: Test mode (required) - choices: ping, tcp, udp, vlan
+- `--mode`: Test mode (required) - choices: ping, tcp, udp, vlan, fragment, protocol, rate, state, policy
 - `--source`: Source IP address for spoofing (optional)
 - `--ports`: Comma-separated list of ports to scan (optional)
 - `--vlan`: VLAN ID for VLAN hopping test (optional)
+- `--packets`: Number of packets for rate limiting test (default: 100)
+- `--interval`: Interval for rate limiting test in seconds (default: 1.0)
 
-## Features
+## Port State Detection
 
-1. **IP Spoofing with ICMP**
-   - Sends spoofed ICMP ping requests
-   - Tests if firewalls properly filter spoofed source addresses
+The tool uses the following methods to determine port states:
 
-2. **TCP SYN Scanning**
-   - Performs TCP SYN scans with optional source IP spoofing
-   - Identifies open, closed, and filtered ports
-   - Automatically sends RST packets to close half-open connections
+### TCP Port States
+- **Open**: Receives SYN-ACK (flags 0x12)
+- **Closed**: Receives RST-ACK (flags 0x14)
+- **Filtered**: No response or ICMP unreachable
 
-3. **UDP Port Scanning**
-   - Tests UDP ports with customizable payloads
-   - Identifies open, closed, and filtered ports
-   - Interprets ICMP responses for port state determination
-
-4. **VLAN Hopping Tests**
-   - Tests for VLAN hopping vulnerabilities using double tagging
-   - Helps identify misconfigured trunk ports
-   - Supports custom VLAN IDs
+### UDP Port States
+- **Open|Filtered**: No response (UDP being stateless makes this ambiguous)
+- **Closed**: ICMP Port Unreachable (type 3, code 3)
+- **Filtered**: Other ICMP messages (codes 1,2,9,10,13)
 
 ## Security Notice
 
@@ -139,3 +178,11 @@ The script includes comprehensive error handling for:
 4. **Interface Issues**
    - Use `scapy show_interfaces()` to list available interfaces
    - Specify the correct interface name if default doesn't work
+
+## Best Practices for Testing
+
+1. Start with basic port scans to understand the network topology
+2. Use state tracking tests to determine firewall sophistication
+3. Follow up with protocol enforcement tests for DPI detection
+4. Use rate limiting tests to understand throttling policies
+5. Finally, run policy consistency checks to find misconfigurations
